@@ -94,19 +94,36 @@ export default function App() {
 
   const autoRotateSpeed = 0.015;
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const displayData = useMemo(() => {
+    if (isMobile) {
+      // Keep only 30% of items on mobile for a clean look
+      return PROCESSED_DATA.filter((_, i) => i % 10 < 3);
+    }
+    return PROCESSED_DATA;
+  }, [isMobile]);
+
   // --- De-duplication Logic ---
   const filteredUniqueModels = useMemo(() => {
     if (!activeFilterYear) return [];
     const seenModels = new Set();
     const unique: typeof PROCESSED_DATA = [];
-    PROCESSED_DATA.forEach(p => {
+    displayData.forEach(p => {
       if (p.year === activeFilterYear && !seenModels.has(p.model)) {
         seenModels.add(p.model);
         unique.push(p);
       }
     });
     return unique;
-  }, [activeFilterYear]);
+  }, [activeFilterYear, displayData]);
 
   const uniqueModelIds = useMemo(() => new Set(filteredUniqueModels.map(p => p.id)), [filteredUniqueModels]);
 
@@ -123,30 +140,21 @@ export default function App() {
       if (dialLayerRef.current) dialLayerRef.current.style.transform = `rotate(${yearAngleRef.current}deg)`;
       if (dataLayerRef.current) dataLayerRef.current.style.transform = `rotate(${dataAngleRef.current}deg)`;
       
-      // Update ray rotations and hover effects
-      const centerX = window.innerWidth * 1.15;
-      const centerY = window.innerHeight / 2;
-      const dialRadius = (window.innerWidth * 0.65) - 120;
+      const { centerX, centerY, radius } = getDialConfig();
       const mouseX = mousePosRef.current.x;
       const mouseY = mousePosRef.current.y;
+      const isMobileLayout = window.innerWidth <= 768;
 
-      PROCESSED_DATA.forEach((phone, index) => {
+      displayData.forEach((phone, index) => {
         const el = phoneElementsRef.current[index];
         if (!el) return;
 
         const rayContainer = el.parentElement;
         if (!rayContainer) return;
 
-        // 1. Update Rotation (if filtered)
+        // 1. Update Rotation
         const currentRayAngle = getRayAngle(index, phone.year);
-        if (activeFilterYear && phone.year === activeFilterYear) {
-          rayContainer.style.transform = `rotate(${currentRayAngle}deg)`;
-        } else if (!activeFilterYear) {
-          // Reset to default if filter cleared (though usually handled by render, 
-          // but animate loop is more immediate)
-          const defaultAngle = index * (360 / TARGET_COUNT);
-          rayContainer.style.transform = `rotate(${defaultAngle}deg)`;
-        }
+        rayContainer.style.transform = `rotate(${currentRayAngle}deg)`;
 
         // 2. Proximity Magnification
         let scale = 1;
@@ -156,28 +164,32 @@ export default function App() {
         const dyMouse = mouseY - centerY;
         const mouseDistFromDialCenter = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
         
-        // Only activate if mouse is within the phone axis band
-        const isOnPhoneAxis = mouseDistFromDialCenter > (dialRadius + 20) && mouseDistFromDialCenter < (dialRadius + 350);
+        // Use responsive radius for axis logic
+        const axisRadius = radius + (isMobileLayout ? 100 : 50);
+        const isOnPhoneAxis = mouseDistFromDialCenter > (axisRadius - 100) && mouseDistFromDialCenter < (axisRadius + 100);
 
         if (isHovering && isOnPhoneAxis && (!activeFilterYear || phone.year === activeFilterYear)) {
           const totalAngleRad = (dataAngleRef.current + currentRayAngle) * (Math.PI / 180);
-          const distFromCenter = dialRadius + 60 + phone.scatterOffset;
           
-          // Calculate screen position of the phone
-          const px = centerX - distFromCenter * Math.cos(totalAngleRad);
-          const py = centerY + distFromCenter * Math.sin(totalAngleRad);
+          let px, py;
+          if (isMobileLayout) {
+             px = centerX + axisRadius * Math.cos(totalAngleRad);
+             py = centerY + axisRadius * Math.sin(totalAngleRad);
+          } else {
+             px = centerX - axisRadius * Math.cos(totalAngleRad);
+             py = centerY + axisRadius * Math.sin(totalAngleRad);
+          }
           
           const dx = mouseX - px;
           const dy = mouseY - py;
           const d = Math.sqrt(dx * dx + dy * dy);
           
-          const effectRadius = 20; // Highly localized effect
+          const effectRadius = isMobileLayout ? 45 : 25; 
           if (d < effectRadius) {
             const power = Math.pow(1 - (d / effectRadius), 2); 
             scale = 1 + power * 1.5; 
             brightness = power;
-            
-            const pushX = power * 40;
+            const pushX = power * (isMobileLayout ? 20 : 40);
             el.style.transform = `translateY(-50%) translateX(${pushX}px) scale(${scale})`;
           } else {
             el.style.transform = `translateY(-50%) scale(1)`;
@@ -186,23 +198,35 @@ export default function App() {
           el.style.transform = `translateY(-50%) scale(1)`;
         }
         
-        // If it's the active phone, we keep its special styles
+        // 3. Update Visuals
         const isActive = activePhone?.id === phone.id;
-        if (!isActive) {
-          if (brightness > 0) {
-            el.style.opacity = String(0.8 + brightness * 0.2);
-            el.style.textShadow = `0 0 ${10 + brightness * 10}px ${BRAND_COLORS[phone.brand]}aa`;
+        const isActiveFilter = activeFilterYear === phone.year;
+
+        if (isActive) {
+          el.style.opacity = '1';
+          el.style.textShadow = `0 0 20px ${BRAND_COLORS[phone.brand] || '#ffffff'}cc`;
+        } else if (brightness > 0) {
+          el.style.opacity = String(0.8 + brightness * 0.2);
+          el.style.textShadow = `0 0 ${10 + brightness * 10}px ${BRAND_COLORS[phone.brand]}aa`;
+        } else {
+          const isDimmed = activeFilterYear && !isActiveFilter;
+          const isDuplicate = activeFilterYear && isActiveFilter && !uniqueModelIds.has(phone.id);
+          
+          if (isDuplicate) {
+            el.style.opacity = '0';
+          } else if (isDimmed) {
+            // Increased dimmed visibility on mobile to solve "blank sectors" artifacts
+            el.style.opacity = isMobileLayout ? '0.12' : '0.05';
+          } else if (activeFilterYear) {
+            el.style.opacity = '0.8';
           } else {
-            el.style.opacity = activeFilterYear 
-              ? (phone.year === activeFilterYear ? '0.8' : '0.05') 
-              : phone.depthOpacity;
-            el.style.textShadow = 'none';
+            el.style.opacity = phone.depthOpacity || '1';
           }
+          el.style.textShadow = 'none';
         }
       });
 
     // 3. Year Labels: 
-    const isMobileLayout = window.innerWidth <= 768;
     yearLabelsRef.current.forEach((el, i) => {
       if (!el) return;
       if (isMobileLayout) {
@@ -221,44 +245,54 @@ export default function App() {
 
     animationFrameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [isHovering, isDragging, activeFilterYear, activePhone]);
+  }, [isHovering, isDragging, activeFilterYear, activePhone, displayData, uniqueModelIds]);
 
-  // --- Mouse Handlers ---
-  const getMouseAngle = (e: React.MouseEvent | MouseEvent) => {
-    const centerX = window.innerWidth * 1.15;
-    const centerY = window.innerHeight / 2;
-    const x = e.clientX - centerX;
-    const y = e.clientY - centerY;
+  // --- Touch/Mouse Helpers ---
+  const getDialConfig = () => {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      return {
+        centerX: window.innerWidth * 0.5,
+        centerY: window.innerHeight * 1.15 - 60,
+        radius: window.innerWidth * 0.8
+      };
+    }
+    return {
+      centerX: window.innerWidth * 1.15,
+      centerY: window.innerHeight / 2,
+      radius: (window.innerWidth * 0.65) - 120
+    };
+  };
+
+  const getMouseAngle = (clientX: number, clientY: number) => {
+    const { centerX, centerY } = getDialConfig();
+    const x = clientX - centerX;
+    const y = clientY - centerY;
     return Math.atan2(y, x) * (180 / Math.PI);
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    const centerX = window.innerWidth * 1.15;
-    const centerY = window.innerHeight / 2;
-    const dx = e.clientX - centerX;
-    const dy = e.clientY - centerY;
+  const handleDragStart = (clientX: number, clientY: number) => {
+    const { centerX, centerY, radius } = getDialConfig();
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    // var(--dial-radius) is roughly 65vw - 120px
-    const dialRadius = (window.innerWidth * 0.65) - 120;
-    
-    // Only allow drag if clicking near the year axis (outer ring)
-    // Hot zone is roughly 100px around the dial radius
-    if (Math.abs(distance - dialRadius) > 100) {
+    // Hot zone is 100px around the dial radius
+    if (Math.abs(distance - radius) > 100) {
       return;
     }
 
     setIsDragging(true);
     isDraggingOperationRef.current = false;
-    startMouseAngleRef.current = getMouseAngle(e);
+    startMouseAngleRef.current = getMouseAngle(clientX, clientY);
     lastYearAngleRef.current = yearAngleRef.current;
     lastDataAngleRef.current = dataAngleRef.current;
   };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleDragMove = (clientX: number, clientY: number) => {
     if (!isDragging) return;
 
-    const currentMouseAngle = getMouseAngle(e);
+    const currentMouseAngle = getMouseAngle(clientX, clientY);
     let deltaAngle = currentMouseAngle - startMouseAngleRef.current;
 
     if (deltaAngle > 180) deltaAngle -= 360;
@@ -273,12 +307,29 @@ export default function App() {
 
     if (dialLayerRef.current) dialLayerRef.current.style.transform = `rotate(${yearAngleRef.current}deg)`;
     if (dataLayerRef.current) dataLayerRef.current.style.transform = `rotate(${dataAngleRef.current}deg)`;
-  }, [isDragging]);
+  };
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseDown = (e: React.MouseEvent) => {
+    handleDragStart(e.clientX, e.clientY);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    handleDragStart(touch.clientX, touch.clientY);
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    handleDragMove(e.clientX, e.clientY);
+  }, [isDragging, handleDragMove]);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    const touch = e.touches[0];
+    handleDragMove(touch.clientX, touch.clientY);
+  }, [isDragging, handleDragMove]);
+
+  const handleDragEnd = useCallback(() => {
     if (isDragging) {
       setIsDragging(false);
-      // Small delay to prevent click events right after drag
       setTimeout(() => {
         isDraggingOperationRef.current = false;
       }, 50);
@@ -288,23 +339,29 @@ export default function App() {
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleDragEnd);
     } else {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleDragEnd);
     }
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleDragEnd);
     };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleTouchMove, handleDragEnd]);
 
   // --- Initial Selection ---
   useEffect(() => {
-    if (PROCESSED_DATA.length > 0) {
-      setActivePhone(PROCESSED_DATA[0] as any);
+    if (displayData.length > 0) {
+      setActivePhone(displayData[0] as any);
     }
-  }, []);
+  }, [displayData]);
 
   const handleYearClick = (year: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -338,26 +395,19 @@ export default function App() {
 
   // --- Calculate Ray Angles ---
   const getRayAngle = (index: number, phoneYear: string) => {
-    const defaultAngle = index * (360 / TARGET_COUNT);
+    const totalItems = displayData.length;
+    const defaultAngle = index * (360 / totalItems);
     if (!activeFilterYear) return defaultAngle;
 
     if (phoneYear === activeFilterYear) {
       const yearIndex = YEARS.indexOf(activeFilterYear);
-      
-      // To align with the year label across different layer rotations:
-      // AbsoluteYearPos = yearAngle + yearIndex * 45
-      // AbsoluteModelPos = dataAngle + relAngle
-      // We want AbsoluteModelPos = AbsoluteYearPos
-      // relAngle = yearAngle - dataAngle + yearIndex * 45
-      // Since dataAngle = 3 * yearAngle, relAngle = yearIndex * 45 - 2 * yearAngle
-      
       const baseAngle = yearIndex * 45 - (yearAngleRef.current * 2);
       
       // Find matching items to distribute them in the arc (de-duplicated)
-      const itemIndexInMatch = filteredUniqueModels.findIndex(p => p.id === PROCESSED_DATA[index].id);
+      const itemIndexInMatch = filteredUniqueModels.findIndex(p => p.id === displayData[index].id);
       
       if (itemIndexInMatch !== -1) {
-        const arcWidth = 40; // Sector width
+        const arcWidth = isMobile ? 60 : 40; // Wider sector on mobile to reduce crowding
         const step = arcWidth / Math.max(1, filteredUniqueModels.length - 1);
         return baseAngle - (arcWidth / 2) + (itemIndexInMatch * step);
       }
@@ -435,25 +485,26 @@ export default function App() {
       >
         <div className="circle-center absolute right-[var(--circle-center-right)] top-[var(--circle-center-top)] w-0 h-0 z-[1]">
           {/* Drag Handle Ring (Strictly limited to year axis: ticks and labels) */}
-          <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10] pointer-events-none"
-            style={{ 
-              width: 'calc(var(--dial-radius) * 2 + 200px)', 
-              height: 'calc(var(--dial-radius) * 2 + 200px)',
-            }}
-          >
-            <svg className="w-full h-full" viewBox="0 0 100 100">
-              <circle 
-                cx="50" cy="50" r="46" 
-                fill="none" 
-                stroke="transparent" 
-                strokeWidth="10" 
-                style={{ pointerEvents: 'stroke' }}
-                className="cursor-grab active:cursor-grabbing"
-                onMouseDown={handleMouseDown}
-              />
-            </svg>
-          </div>
+                <div 
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10] pointer-events-none"
+                  style={{ 
+                    width: 'calc(var(--dial-radius) * 2 + 200px)', 
+                    height: 'calc(var(--dial-radius) * 2 + 200px)',
+                  }}
+                >
+                  <svg className="w-full h-full" viewBox="0 0 100 100">
+                    <circle 
+                      cx="50" cy="50" r="46" 
+                      fill="none" 
+                      stroke="transparent" 
+                      strokeWidth="12" 
+                      style={{ pointerEvents: 'stroke' }}
+                      className="cursor-grab active:cursor-grabbing"
+                      onMouseDown={handleMouseDown}
+                      onTouchStart={handleTouchStart}
+                    />
+                  </svg>
+                </div>
 
           {/* Dial Layer (Years) */}
           <div ref={dialLayerRef} className="dial-layer absolute w-full h-full z-[20] pointer-events-none">
@@ -478,7 +529,7 @@ export default function App() {
                   {isLong && yearIndex < YEARS.length && (
                     <div 
                       ref={el => yearLabelsRef.current[yearIndex] = el}
-                      className={`year-label absolute right-[calc(var(--dial-radius)+50px)] -top-[14px] text-[22px] font-extralight tracking-[2px] cursor-pointer transition-all duration-300 hover:text-white hover:scale-110 pointer-events-auto z-[60] ${
+                      className={`year-label absolute right-[calc(var(--dial-radius)+50px)] -top-[14px] text-xs md:text-[22px] font-extralight tracking-[2px] cursor-pointer transition-all duration-300 hover:text-white hover:scale-110 pointer-events-auto z-[60] ${
                         activeFilterYear === year ? 'text-white font-bold [text-shadow:0_0_15px_rgba(255,255,255,0.8)]' : 'text-[#666]'
                       }`}
                       style={{ transformOrigin: 'center center' }}
@@ -494,7 +545,7 @@ export default function App() {
 
           {/* Data Layer (Phones) */}
           <div ref={dataLayerRef} className="data-layer absolute w-full h-full z-[30] pointer-events-none">
-            {PROCESSED_DATA.map((phone, index) => {
+            {displayData.map((phone, index) => {
               const isDimmed = activeFilterYear && phone.year !== activeFilterYear;
               const isActiveFilter = activeFilterYear === phone.year;
               const isDuplicateInFilter = activeFilterYear && isActiveFilter && !uniqueModelIds.has(phone.id);

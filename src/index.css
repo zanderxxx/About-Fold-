@@ -16,7 +16,7 @@
 @media (max-width: 768px) {
   :root {
     --dial-radius: 80vw;
-    --data-base-left: calc(20vw + 80px);
+    --data-base-left: calc(20vw + 100px);
     --circle-center-right: 50%;
     --circle-center-top: calc(115% - 60px);
   }
