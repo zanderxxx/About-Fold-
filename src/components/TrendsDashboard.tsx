@@ -253,7 +253,7 @@ export const TrendsDashboard: React.FC = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="w-full h-screen flex flex-col p-6 md:px-12 md:pb-12 md:pt-24 bg-[#020203] overflow-hidden"
+      className="w-full h-screen flex flex-col px-[6%] md:pb-12 md:pt-24 bg-[#020203] overflow-hidden"
     >
       <div className="flex flex-col items-start mb-12 space-y-8 shrink-0">
         <div className="z-10">

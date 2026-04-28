@@ -10,9 +10,6 @@ import { TextTransition } from './components/TextTransition';
 import { TrendsDashboard } from './components/TrendsDashboard';
 import { ComparePage } from './components/ComparePage';
 
-// Logo as Base64 to ensure reliable loading on all platforms (e.g. GitHub Pages)
-const logoImg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADwAAAAeCAYAAABwmH1PAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAhRJREFUeAHdmO2RwiAQhkkHlpASUoLXgR1IB2cHpoOzg6QDS7gSYgeUEDvYgxGU4WDZBW7mzDvDH9yP95HEbBTCCgC+xEal2Sa9dv6GhIcmsTFZWKPR31Tw0mZOWrOcPa7VbUr4rbN4cwWwTjI83U1AJ2CNltQJs6F1bK/XVa9vt0Sh/Bp29YzcM8JzckEjEnQkNDGwKkwUhYp4UBRo4xXhGMPgIugUbGPgLDQLlgC96jUIBqzZF+XAigNtvFmPdFgv+QIE6BwsMO67iIdc7V0TWK/IjIGYhnotWIyolO2TAlmsB+yLmTn9ctAp2OilXwE9ZKAVMGE7pJm5bMyjhQpw1+uj67obFqTr7iPbN513T8QP1sdO0HSzPu6CK8Av3VAHQr0+kdtn8g5A0wL+S0KJLLTKNJLEWkXANldmPCho8Nvhmk1YI0adYmCbrxAfbd70AB/V2jbDfUwEH3XzPxH2z6F17S+GjzJoJmxdszIfazMfgMOa8RN7PjaDzsAOgM//NB+Aw168uH11s3If/og7F/vQAZ9I8hyJxx4VJ1GojA8ZiZ/ZPgB/vboi5lLQtX8A0M3jOUZHDmx2eoH4vdQaeMzk5KbCows81MAi0C2BR2JeDnqfOh0jBcxRDR6T1HOJQsHr1a8v9KASTNIVX2th/5MS0C+m4JTfGtYpAj35H7pT3gSsUwDdhx+etgTrZKGfA9MPmNjNj5/rMMgAAAAASUVORK5CYII=";
-
 // --- Types ---
 interface PhoneData {
   brand: string;
@@ -437,11 +434,14 @@ export default function App() {
         {/* Logo */}
         <div className="flex items-center mr-16 group cursor-pointer" onClick={() => setActiveTab('home')}>
           <div className="relative flex items-center h-6">
-            <img 
-              src={logoImg} 
-              alt="Logo" 
-              className="h-full w-auto object-contain"
-            />
+            <svg width="40" height="20" viewBox="0 0 40 20" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] filter">
+              {/* Left X */}
+              <path d="M6 5L14 15M14 5L6 15" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+              {/* Middle Dash */}
+              <line x1="18" y1="10" x2="22" y2="10" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+              {/* Right X */}
+              <path d="M26 5L34 15M34 5L26 15" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+            </svg>
           </div>
           <span className="ml-4 text-[14px] font-bold tracking-[0.4em] text-white uppercase pt-0.5 hidden sm:block opacity-90">
             FoldHub
