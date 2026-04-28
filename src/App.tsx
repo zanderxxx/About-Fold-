@@ -9,8 +9,9 @@ import { ParticleWave } from './components/ParticleWave';
 import { TextTransition } from './components/TextTransition';
 import { TrendsDashboard } from './components/TrendsDashboard';
 import { ComparePage } from './components/ComparePage';
-// @ts-ignore
-import logoImg from './assets/logo.png';
+
+// Logo as Base64 to ensure reliable loading on all platforms (e.g. GitHub Pages)
+const logoImg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADwAAAAeCAYAAABwmH1PAAAACXBIWXMAACE4AAAhOAFFljFgAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAhRJREFUeAHdmO2RwiAQhkkHlpASUoLXgR1IB2cHpoOzg6QDS7gSYgeUEDvYgxGU4WDZBW7mzDvDH9yP95HEbBTCCgC+xEal2Sa9dv6GhIcmsTFZWKPR31Tw0mZOWrOcPa7VbUr4rbN4cwWwTjI83U1AJ2CNltQJs6F1bK/XVa9vt0Sh/Bp29YzcM8JzckEjEnQkNDGwKkwUhYp4UBRo4xXhGMPgIugUbGPgLDQLlgC96jUIBqzZF+XAigNtvFmPdFgv+QIE6BwsMO67iIdc7V0TWK/IjIGYhnotWIyolO2TAlmsB+yLmTn9ctAp2OilXwE9ZKAVMGE7pJm5bMyjhQpw1+uj67obFqTr7iPbN513T8QP1sdO0HSzPu6CK8Av3VAHQr0+kdtn8g5A0wL+S0KJLLTKNJLEWkXANldmPCho8Nvhmk1YI0adYmCbrxAfbd70AB/V2jbDfUwEH3XzPxH2z6F17S+GjzJoJmxdszIfazMfgMOa8RN7PjaDzsAOgM//NB+Aw168uH11s3If/og7F/vQAZ9I8hyJxx4VJ1GojA8ZiZ/ZPgB/vboi5lLQtX8A0M3jOUZHDmx2eoH4vdQaeMzk5KbCows81MAi0C2BR2JeDnqfOh0jBcxRDR6T1HOJQsHr1a8v9KASTNIVX2th/5MS0C+m4JTfGtYpAj35H7pT3gSsUwDdhx+etgTrZKGfA9MPmNjNj5/rMMgAAAAASUVORK5CYII=";
 
 // --- Types ---
 interface PhoneData {
@@ -440,7 +441,6 @@ export default function App() {
               src={logoImg} 
               alt="Logo" 
               className="h-full w-auto object-contain"
-              referrerPolicy="no-referrer"
             />
           </div>
           <span className="ml-4 text-[14px] font-bold tracking-[0.4em] text-white uppercase pt-0.5 hidden sm:block opacity-90">
